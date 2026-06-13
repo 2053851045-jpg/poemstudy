@@ -1,0 +1,1338 @@
+好的，我直接按上面的提示词为你生成全部 8 个约束与管理文档。以下是完整的文档内容，你可以直接复制到 trac 或本地 `docs/` 文件夹中。你的 GitHub 仓库地址会在提交消息规范部分用到。
+
+---
+
+# 📁 文档 1：技术栈约束.md
+
+**建议路径**：`docs/1-项目约束/技术栈约束.md`
+
+```markdown
+🔒 约束版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建 | [你的姓名] |
+
+---
+
+## 一、开发环境
+
+| 项 | 版本/配置 | 备注 |
+|----|-----------|------|
+| DevEco Studio | 5.0.0+ (API 12) | 必须使用 API 12 或更高 |
+| SDK 版本 | API 12 (HarmonyOS NEXT) | |
+| 应用模型 | Stage 模型 | 禁用 FA 模型 |
+| 目标设备 | 手机 (Phone) | 模拟器或真机均可 |
+| 最低 API 版本 | API 12 | |
+
+---
+
+## 二、强制使用的库
+
+| 功能 | 库名 | 用途 |
+|------|------|------|
+| 本地数据库 | `@ohos.data.relationalStore` | 核心内容库存储、收藏、历史记录 |
+| 网络请求 | `@ohos/axios` | 所有后端接口调用 |
+| 状态持久化 | `AppStorage` / `PersistentStorage` | Token 存储、跨页面状态 |
+| 页面路由 | `@ohos.router` | pushUrl / replaceUrl 页面跳转 |
+
+---
+
+## 三、禁止使用的库/方式
+
+- ❌ `@ohos.data.preferences`（用户首选项）—— 不能替代 relationalStore 用于核心内容库存储
+- ❌ `@ohos.file`（文件存储）—— 结构化数据必须用 RDB
+- ❌ `ForEach` 全量渲染列表 —— 必须使用 List + LazyForEach
+- ❌ 第三方统计图库（如 ECharts）—— 图表用 Grid 或 Canvas 自绘
+
+---
+
+## 四、API 版本注意
+
+- `relationalStore` 从 API 7 开始支持，API 12 下功能稳定
+- `axios` 在 API 20 环境下可正常使用拦截器
+- `LazyForEach` 仅在 List、Grid、Swiper、WaterFlow 组件中支持懒加载
+
+---
+
+## 五、代码规范引用
+
+代码命名、文件组织等规范详见 `代码规范.md`。
+```
+
+---
+
+# 📁 文档 2：数据模型约束.md
+
+**建议路径**：`docs/1-项目约束/数据模型约束.md`
+
+```markdown
+🔒 约束版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（3张表） | [你的姓名] |
+
+---
+
+## 一、数据库文件
+
+```
+数据库名：poemstudy.db
+存储位置：应用沙箱（relationalStore 自动管理）
+字符编码：UTF-8
+```
+
+---
+
+## 二、表结构定义
+
+### 2.1 poem 表（诗词库）—— 核心内容表，≥300 条
+
+```sql
+CREATE TABLE poem (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,           -- 诗词标题
+  author TEXT,                   -- 作者
+  dynasty TEXT,                  -- 朝代（唐/宋/元/明/清等）
+  content TEXT NOT NULL,         -- 诗词正文
+  category TEXT,                 -- 分类（唐诗/宋词/元曲/其他）
+  image_id TEXT                  -- 对应图片文件名（如 "poem_001"）
+);
+```
+
+**索引设计**：
+- `CREATE INDEX idx_poem_title ON poem(title);` —— 支持标题模糊搜索
+- `CREATE INDEX idx_poem_category ON poem(category);` —— 支持分类筛选
+
+**字段约束**：
+- `title` 和 `content` 不能为空字符串
+- `category` 枚举值限定为：`唐诗`、`宋词`、`元曲`、`其他`
+- `dynasty` 枚举值限定为：`唐`、`宋`、`元`、`明`、`清`
+
+### 2.2 favorite 表（收藏）
+
+```sql
+CREATE TABLE favorite (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER DEFAULT 1,     -- 当前版本固定为 1（单人模式）
+  poem_id INTEGER NOT NULL,      -- 关联 poem.id
+  create_time TEXT,              -- 格式：YYYY-MM-DD HH:MM:SS
+  FOREIGN KEY (poem_id) REFERENCES poem(id) ON DELETE CASCADE
+);
+```
+
+**索引设计**：
+- `CREATE UNIQUE INDEX idx_favorite_user_poem ON favorite(user_id, poem_id);` —— 防止重复收藏
+
+### 2.3 quiz_record 表（测验记录）
+
+```sql
+CREATE TABLE quiz_record (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER DEFAULT 1,
+  poem_id INTEGER,               -- 关联 poem.id（可为空，表示非诗词类题目）
+  score INTEGER,                 -- 得分（0-100）
+  quiz_time TEXT                 -- 测验时间 YYYY-MM-DD HH:MM:SS
+);
+```
+
+**索引设计**：
+- `CREATE INDEX idx_quiz_user_time ON quiz_record(user_id, quiz_time);` —— 用于历史查询
+
+---
+
+## 三、关系图
+
+```
+poem (1) ──────< (N) favorite (N) >────── (1) user (隐式，user_id=1)
+   │
+   └────────────< (N) quiz_record
+```
+
+---
+
+## 四、禁止操作
+
+- ❌ 不得直接修改 `poem` 主表数据（除种子初始化外）
+- ❌ 不得在代码中硬编码 SQL 字符串完成复杂查询 → 统一使用 `RdbPredicates`
+- ❌ 不得使用 `DELETE FROM poem` 清空主表（会破坏 300 条硬指标）
+
+---
+
+## 五、种子数据规范
+
+- 种子数据文件：`entry/src/main/resources/rawfile/poems.json`
+- 格式：JSON 数组，每个元素包含 `title`、`author`、`dynasty`、`content`、`category`、`image_id` 字段
+- 条数要求：`poems.json` 必须包含 ≥300 条有效数据
+- 使用 `relationalStore.insert()` 批量写入时注意事务包裹，失败应回滚
+```
+
+---
+
+# 📁 文档 3：API 接口约定.md
+
+**建议路径**：`docs/1-项目约束/API接口约定.md`
+
+```markdown
+🔒 约束版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（4个接口定义） | [你的姓名] |
+
+---
+
+## 一、基础配置
+
+```
+Base URL: http://localhost:3000/api   [开发环境] / 需替换为真实 Mock 服务器地址
+超时时间：10000ms
+请求头：
+  - Content-Type: application/json
+  - Authorization: Bearer <token>  （需要登录的接口必须携带）
+```
+
+⚠️ **强制要求**：所有请求统一使用 `axios.create()` 单例实例，并在拦截器中统一添加 Token 和错误处理。
+
+---
+
+## 二、接口详细定义
+
+### 接口 1：登录
+
+| 项 | 内容 |
+|----|------|
+| 方法 | POST |
+| 路径 | `/login` |
+| 是否需要登录 | 否 |
+| 请求体 | `{ "username": "string", "password": "string" }` |
+| 成功响应 | `{ "code": 0, "message": "success", "data": { "token": "string", "userInfo": { "nickname": "string", "avatar": "string" } } }` |
+| 失败响应 | `{ "code": 400, "message": "用户名或密码错误" }` |
+
+**Mock 行为**：任意账号密码均返回固定 token: `mock_token_poemstudy_2026`。
+
+### 接口 2：获取诗圈帖子列表
+
+| 项 | 内容 |
+|----|------|
+| 方法 | GET |
+| 路径 | `/social/posts` |
+| 是否需要登录 | 是 |
+| 请求参数 | `?page=1&limit=20` |
+| 成功响应 | `{ "code": 0, "data": { "list": [ { "id": 1, "content": "string", "likes": 0, "isLiked": false, "createTime": "2026-06-11T10:00:00Z" } ], "total": 0 } }` |
+
+### 接口 3：点赞/取消点赞
+
+| 项 | 内容 |
+|----|------|
+| 方法 | POST |
+| 路径 | `/social/like` |
+| 是否需要登录 | 是 |
+| 请求体 | `{ "postId": 1, "action": "like" }`  // action: "like" 或 "unlike" |
+| 成功响应 | `{ "code": 0, "data": { "likes": 10, "isLiked": true } }` |
+
+### 接口 4：发布帖子
+
+| 项 | 内容 |
+|----|------|
+| 方法 | POST |
+| 路径 | `/social/post` |
+| 是否需要登录 | 是 |
+| 请求体 | `{ "content": "string" }` |
+| 成功响应 | `{ "code": 0, "data": { "post": { "id": 2, "content": "...", "likes": 0, "createTime": "..." } } }` |
+
+---
+
+## 三、错误码约定
+
+| code 值 | 含义 |
+|---------|------|
+| 0 | 成功 |
+| 400 | 请求参数错误 |
+| 401 | Token 无效或已过期 |
+| 404 | 资源不存在 |
+| 500 | 服务器内部错误 |
+
+---
+
+## 四、拦截器要求
+
+- **请求拦截器**：自动从 AppStorage 读取 token，添加到 `Authorization` 请求头
+- **响应拦截器**：统一解包 `res.data`，401 错误自动清除本地 token 并跳转登录页
+- 详细实现见 `services/ApiService.ets`
+
+---
+
+## 五、禁止行为
+
+- ❌ 每个接口单独创建 axios 实例（必须复用单例）
+- ❌ 硬编码 token 到请求代码中
+- ❌ 忘记处理网络异常（必须 try-catch + Toast 提示用户）
+```
+
+---
+
+# 📁 文档 4：代码规范.md
+
+**建议路径**：`docs/1-项目约束/代码规范.md`
+
+```markdown
+🔒 约束版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建 | [你的姓名] |
+
+---
+
+## 一、命名规范
+
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| 组件文件 | 大驼峰（PascalCase），以 `Page.ets` 或 `.ets` 结尾 | `PoemListPage.ets`、`PoemListItem.ets` |
+| 工具/服务类 | 大驼峰 + 具体职责 | `DatabaseHelper.ets`、`ApiService.ets` |
+| 变量/函数 | 小驼峰（camelCase） | `loadMoreData()`、`isFavorite` |
+| 常量 | 全大写下划线分隔 | `MAX_PAGE_SIZE`、`DEFAULT_TOKEN_KEY` |
+| 枚举 | 大驼峰，成员全大写 | `QuizStatus { NotStarted, Answering, Completed }` |
+| 接口/类型 | 以 `I` 或直接大驼峰 | `Poem`、`UserInfo` |
+
+---
+
+## 二、目录结构（固定）
+
+```
+entry/src/main/ets/
+├── common/                 # 常量、枚举、接口定义
+│   ├── Constants.ets
+│   ├── Enums.ets
+│   └── Types.ets
+├── model/                  # 数据库实体和操作类
+│   ├── DatabaseHelper.ets
+│   ├── Poem.ets
+│   ├── Favorite.ets
+│   └── QuizRecord.ets
+├── services/               # 网络请求
+│   └── ApiService.ets
+├── components/             # 自定义组件（3-4个）
+│   ├── PoemListItem.ets
+│   ├── QuizOptionCard.ets
+│   ├── SocialPostItem.ets
+│   └── ChartGrid.ets
+├── pages/                  # 页面文件（7-9个）
+│   ├── SplashPage.ets
+│   ├── LoginPage.ets
+│   ├── MainPage.ets
+│   ├── PoemListPage.ets
+│   ├── PoemDetailPage.ets
+│   ├── QuizPage.ets
+│   ├── SocialPage.ets
+│   ├── ProfilePage.ets
+│   └── FavoritesPage.ets
+└── utils/                  # 工具函数
+    ├── DateUtil.ets
+    └── StringUtil.ets
+```
+
+---
+
+## 三、ArkTS 语法要点
+
+### 3.1 状态管理规范
+
+| 场景 | 使用的装饰器 |
+|------|-------------|
+| 组件内部可变状态 | `@State` |
+| 父传子（只读） | `@Prop` |
+| 父传子（双向） | `@Link` |
+| 跨层级传递 | `@Provide` / `@Consume` |
+| 嵌套对象深度更新 | `@Observed` + `@ObjectLink` |
+| 应用全局状态 | `AppStorage` / `@StorageLink` |
+| 持久化存储（Token） | `PersistentStorage` |
+
+### 3.2 异步处理
+
+- 所有数据库和网络操作必须使用 `async/await` + `try-catch`
+- 禁止使用 `.then().catch()` 回调嵌套
+
+```typescript
+// ✅ 正确
+try {
+  const data = await this.db.query(params);
+  // 处理数据
+} catch (err) {
+  console.error('查询失败', err);
+  // 显示 Toast
+}
+
+// ❌ 错误
+this.db.query(params).then(data => { ... });
+```
+
+### 3.3 结果集资源释放
+
+**强制要求**：`ResultSet` 使用完毕后必须调用 `close()`，建议放在 `finally` 中。
+
+```typescript
+let resultSet: relationalStore.ResultSet | null = null;
+try {
+  resultSet = await this.rdbStore.query(predicates);
+  while (resultSet.goToNextRow()) {
+    // 读取数据
+  }
+} catch (err) {
+  console.error('查询失败', err);
+} finally {
+  resultSet?.close();  // 必须关闭
+}
+```
+
+---
+
+## 四、UI 开发规范
+
+| 规范 | 要求 |
+|------|------|
+| 列表渲染 | ≥20 条数据必须用 `List` + `LazyForEach`，禁止 `ForEach` 全量渲染 |
+| 布局优先级 | `Column`/`Row` > `Flex` > `Stack`（除非需要层叠） |
+| 颜色管理 | 主题色定义在 `Constants.ets`，禁止硬编码颜色值 |
+| 尺寸单位 | 统一使用 `vp`，字体用 `fp` |
+
+---
+
+## 五、提交消息规范（针对 GitHub）
+
+```
+<type>(<scope>): <subject>
+
+类型（type）：
+  - feat: 新功能
+  - fix: 修复 bug
+  - docs: 文档更新
+  - style: 代码格式（不影响运行）
+  - refactor: 重构
+  - test: 测试相关
+  - chore: 构建/工具配置
+
+示例：
+  feat(poem-list): 实现分类筛选功能
+  fix(db): 修复 ResultSet 未关闭导致的内存泄漏
+  docs(constraint): 更新数据模型约束 v1.1
+```
+
+---
+
+## 六、代码审查要点
+
+提交 PR/MR 前必须自查：
+1. ✅ 所有 RDB 查询是否关闭了 ResultSet？
+2. ✅ 网络请求是否有 try-catch 和 Toast 提示？
+3. ✅ 页面销毁时是否释放了资源（如定时器、事件监听）？
+4. ✅ 自定义组件是否按文件单独存放？
+5. ✅ 是否有未使用的 import 或 console.log？
+```
+
+---
+
+# 📁 文档 5：里程碑.md
+
+**建议路径**：`docs/2-开发计划/里程碑.md`
+
+```markdown
+📅 计划版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（4个里程碑） | [你的姓名] |
+
+---
+
+## 里程碑总览
+
+| 里程碑 | 名称 | 预估工时 | 完成标志 |
+|--------|------|----------|----------|
+| M1 | 数据层 + 种子数据 | 6 小时 | poem 表有 ≥300 条真实数据，增删改查方法封装完毕 |
+| M2 | 基础页面 + 导航框架 | 8 小时 | 底部 Tab 可切换，诗词列表页可显示数据，详情页可打开 |
+| M3 | 交互功能（测验） | 6 小时 | 测验页可出题、计时、评分、记录存入 RDB |
+| M4 | 网络功能（诗圈） + 图表 | 8 小时 | 诗圈可拉取/发布/点赞，个人中心图表基于 RDB 聚合展示 |
+| M5 | 集成测试 + 文档收尾 | 4 小时 | 所有硬指标达标，无崩溃，技术报告和 PPT 完成 |
+
+**总预估工时：32 小时（按每天 4 小时，约 8 天完成）**
+
+---
+
+## 里程碑 M1：数据层 + 种子数据（第 1-2 天）
+
+### 任务清单
+- [ ] 创建 `DatabaseHelper` 单例类
+- [ ] 实现 `init()` 建表方法
+- [ ] 生成 300 条诗词 JSON 数据
+- [ ] 实现 `insertSeedPoems()` 批量导入
+- [ ] 封装 CRUD 方法（按 ID 查、分页查、模糊搜索、分类筛选）
+- [ ] 封装收藏表操作方法（添加/删除/检查状态）
+- [ ] 编写自动化测试代码验证 300 条数据
+
+### 验收标准
+- ✅ `poem` 表实际包含 ≥300 条记录
+- ✅ `DatabaseHelper` 所有方法均通过手动测试
+- ✅ 无 ResultSet 泄漏（所有查询后都调用了 close）
+
+---
+
+## 里程碑 M2：基础页面 + 导航框架（第 3-4 天）
+
+### 任务清单
+- [ ] 启动页（SplashPage）+ 入场动画 + 路由跳转
+- [ ] 登录页 + 持久化存储 Token
+- [ ] 主页底部 Tab（Tabs 组件）+ @StorageLink 记录当前 Tab
+- [ ] 诗词列表页（PoemListPage）+ List + LazyForEach 懒加载
+- [ ] 分类筛选 + 关键词搜索（RdbPredicates）
+- [ ] 诗词详情页（PoemDetailPage）+ 收藏/取消收藏
+- [ ] 自定义组件 PoemListItem
+
+### 验收标准
+- ✅ 从列表页滑动到第 100 条，无明显卡顿
+- ✅ 分类筛选和搜索结果正确
+- ✅ 收藏按钮状态可在详情页和列表页同步
+
+---
+
+## 里程碑 M3：交互功能——诗词测验（第 5-6 天）
+
+### 任务清单
+- [ ] 从 RDB 随机抽取 5 条诗词作为题库
+- [ ] 设计题目结构（上句接下句/填空）
+- [ ] TextTimer 计时器 + Progress 进度条
+- [ ] 状态机管理（答题中/已完成）
+- [ ] @CustomDialog 自定义结果弹窗
+- [ ] 结果写入 `quiz_record` 表
+
+### 验收标准
+- ✅ 每次进入测验页题目不同（随机抽取）
+- ✅ 计时和进度条正常工作
+- ✅ 完成后弹窗显示正确得分
+- ✅ `quiz_record` 表中有对应记录
+
+---
+
+## 里程碑 M4：网络功能 + 数据可视化（第 7-8 天）
+
+### 任务清单
+- [ ] ApiService 封装（axios 单例 + 拦截器）
+- [ ] 诗圈页面（SocialPage）GET 帖子列表
+- [ ] 点赞/取消点赞（@Observed + @ObjectLink 深度响应）
+- [ ] 发布帖子（POST）
+- [ ] 个人中心（ProfilePage）用户信息展示
+- [ ] 数据可视化：从 RDB 聚合（SELECT dynasty, COUNT(*) GROUP BY dynasty）→ 用 Grid 或 Canvas 展示
+
+### 验收标准
+- ✅ 诗圈帖子列表能正常加载（Mock 后端）
+- ✅ 点赞后 UI 实时更新（无需刷新整个列表）
+- ✅ 图表基于真实 RDB 数据展示，不是硬编码
+- ✅ 退出登录后 Token 清除，无法访问需要登录的功能
+
+---
+
+## 里程碑 M5：集成测试 + 文档收尾（第 9 天）
+
+### 任务清单
+- [ ] 对照技术核对表逐项自检
+- [ ] 真机/模拟器完整走一遍所有功能
+- [ ] 撰写技术报告（15 页以上）
+- [ ] 制作答辩 PPT
+- [ ] 录制功能演示视频（可选）
+- [ ] 推送最终代码到 GitHub
+
+### 验收标准
+- ✅ 所有硬指标达标（见技术核对表）
+- ✅ 无崩溃、无明显 UI 异常
+- ✅ GitHub 仓库包含完整项目代码
+```
+
+---
+
+# 📁 文档 6：任务拆分.md
+
+**建议路径**：`docs/2-开发计划/任务拆分.md`
+
+```markdown
+📅 计划版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建，按页面拆分子任务 | [你的姓名] |
+
+---
+
+## 任务编号规则
+
+`[里程碑] - [序号] - [模块名]` 示例：`M1-01-DatabaseHelper`
+
+---
+
+## M1 数据层任务拆分
+
+| 任务 ID | 任务名称 | 描述 | 依赖 | 预估时间 |
+|---------|----------|------|------|----------|
+| M1-01 | DatabaseHelper 骨架 | 创建类、获取 RdbStore、建表 SQL | 无 | 1h |
+| M1-02 | 种子数据生成 | 用 AI 生成 300 条诗词 JSON，放入 rawfile | M1-01 | 1.5h |
+| M1-03 | 批量导入功能 | 读取 JSON 并批量插入 poem 表 | M1-02 | 1h |
+| M1-04 | CRUD 方法封装 | queryPoems、getPoemById、queryCount 等 | M1-01 | 1.5h |
+| M1-05 | 收藏表操作 | addFavorite、removeFavorite、isFavorited | M1-01 | 1h |
+| M1-06 | 测验记录表操作 | addQuizRecord、getHistory | M1-01 | 0.5h |
+| M1-07 | 数据验证脚本 | 检查 poem 表是否真的 ≥300 条 | M1-04 | 0.5h |
+
+---
+
+## M2 基础页面任务拆分
+
+| 任务 ID | 任务名称 | 描述 | 依赖 | 预估时间 |
+|---------|----------|------|------|----------|
+| M2-01 | SplashPage | 启动页动画 + 路由跳转 | 无 | 1h |
+| M2-02 | LoginPage | 登录 UI + axios 调用 + 存储 token | M1-04 | 1h |
+| M2-03 | MainPage（Tabs） | 底部 Tab 容器，4 个 Tab 占位 | M2-02 | 1h |
+| M2-04 | PoemListPage（列表页） | List + LazyForEach + RDB 分页查询 | M1-04 | 2h |
+| M2-05 | 分类筛选 + 搜索 | 用 RdbPredicates 实现筛选和模糊搜索 | M2-04 | 1h |
+| M2-06 | PoemDetailPage | 详情页 + 收藏按钮 | M1-05 | 1.5h |
+| M2-07 | PoemListItem 组件 | 自定义列表项组件（标题+作者+朝代） | M2-04 | 0.5h |
+
+---
+
+## M3 测验功能任务拆分
+
+| 任务 ID | 任务名称 | 描述 | 依赖 | 预估时间 |
+|---------|----------|------|------|----------|
+| M3-01 | QuizPage UI | 题目显示区、选项按钮、进度条、计时器 | M2-03 | 1h |
+| M3-02 | 随机抽题逻辑 | 从 poem 表随机抽取 5 条 | M1-04 | 0.5h |
+| M3-03 | 状态机 | 定义 QuizStatus 枚举，管理答题流程 | 无 | 0.5h |
+| M3-04 | 计分逻辑 | 判断正误、累加分数 | M3-02 | 0.5h |
+| M3-05 | 结果弹窗 | @CustomDialog 显示成绩、重试按钮 | M3-04 | 1h |
+| M3-06 | 记录写入 | 将结果写入 quiz_record 表 | M1-06 | 0.5h |
+
+---
+
+## M4 网络 + 图表任务拆分
+
+| 任务 ID | 任务名称 | 描述 | 依赖 | 预估时间 |
+|---------|----------|------|------|----------|
+| M4-01 | ApiService 封装 | axios 单例 + 拦截器 + Token 自动注入 | 无 | 1h |
+| M4-02 | SocialPage UI | 帖子列表 + 发布框 | M2-03 | 1h |
+| M4-03 | 帖子列表加载 | GET /social/posts + @Observed 数据模型 | M4-01 | 1h |
+| M4-04 | 点赞功能 | POST /social/like + @ObjectLink 深度响应 | M4-03 | 1h |
+| M4-05 | 发布帖子 | POST /social/post + 刷新列表 | M4-01 | 0.5h |
+| M4-06 | ProfilePage UI | 用户信息展示 + 功能入口 | M2-03 | 0.5h |
+| M4-07 | RDB 聚合统计 | 按朝代分组统计诗词数量 | M1-04 | 0.5h |
+| M4-08 | 图表组件 | Grid 矩阵图 / Canvas 柱状图展示统计结果 | M4-07 | 1.5h |
+| M4-09 | FavoritesPage | 收藏列表页（联查 favorite + poem） | M1-05 | 1h |
+
+---
+
+## M5 集成测试 + 收尾
+
+| 任务 ID | 任务名称 | 描述 | 依赖 | 预估时间 |
+|---------|----------|------|------|----------|
+| M5-01 | 硬指标自检 | 根据技术核对表逐项确认 | M1-M4 全部 | 1h |
+| M5-02 | 端到端测试 | 完整走一遍用户流程 | M5-01 | 1h |
+| M5-03 | 代码清理 | 删除 console.log、未使用 import、优化格式 | M5-02 | 0.5h |
+| M5-04 | 技术报告 | 撰写 15 页以上技术报告 | 无 | 2h |
+| M5-05 | 答辩 PPT | 制作演示幻灯片 | M5-04 | 1h |
+| M5-06 | GitHub 提交 | 最终代码推送 | M5-03 | 0.5h |
+```
+
+---
+
+# 📁 文档 7：角色定义.md
+
+**建议路径**：`docs/3-AI协作/角色定义.md`
+
+```markdown
+🤖 协作版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（5 种 AI 协作角色） | [你的姓名] |
+
+---
+
+## 一、角色切换机制
+
+在每次与 AI 对话时，使用以下触发词激活相应角色：
+
+| 触发词 | 角色名称 | 职责 |
+|--------|----------|------|
+| `[角色：代码审查员]` | 代码审查员 | 检查代码是否符合规范、有无潜在 Bug |
+| `[角色：测试生成器]` | 测试生成器 | 为指定函数/模块生成测试用例 |
+| `[角色：文档同步器]` | 文档同步器 | 检查代码变更是否需要更新约束文档 |
+| `[角色：故障诊断师]` | 故障诊断师 | 分析报错堆栈，定位问题根源 |
+| `[角色：架构顾问]` | 架构顾问 | 评估技术方案可行性，指出风险点 |
+
+---
+
+## 二、各角色详细定义
+
+### 角色 A：代码审查员
+
+**职责**：
+- 检查代码是否符合 `代码规范.md` 中的命名、目录、语法规则
+- 识别潜在的资源泄漏（如 ResultSet 未关闭）
+- 识别异步处理问题（缺少 await、缺少 try-catch）
+- 检查列表是否使用了 LazyForEach 而非 ForEach
+
+**输出格式**：
+```
+[代码审查报告]
+- 符合项: xxx
+- 不符合项: xxx (位置: 文件:行号)
+- 建议修改: xxx
+- 严重程度: 🔴 阻塞 / 🟡 建议 / 🔵 优化
+```
+
+### 角色 B：测试生成器
+
+**职责**：
+- 为指定的函数生成手动测试步骤
+- 为数据库操作生成验证 SQL
+- 为 UI 组件生成边界条件测试用例
+
+**输出格式**：
+```
+[测试用例: 函数名]
+用例1: 正常场景 - 输入 xxx，预期输出 xxx
+用例2: 异常场景 - 输入 xxx，预期抛出 xxx
+用例3: 边界场景 - 输入 xxx，预期输出 xxx
+验证方法: xxx
+```
+
+### 角色 C：文档同步器
+
+**职责**：
+- 检测代码变更是否违反约束文档
+- 建议是否需要更新数据模型或 API 约定
+
+**输出格式**：
+```
+[文档同步检查]
+- 代码变更: xxx
+- 影响文档: xxx
+- 建议操作: 更新 v1.0 → v1.1，变更内容: xxx
+```
+
+### 角色 D：故障诊断师
+
+**职责**：
+- 分析报错堆栈，定位到具体文件和行号
+- 推断错误原因（类型错误、异步问题、资源问题等）
+- 提供修复方案
+
+**输出格式**：
+```
+[故障诊断]
+- 错误信息: xxx
+- 根本原因: xxx
+- 修复方案: xxx
+- 验证方法: xxx
+```
+
+### 角色 E：架构顾问
+
+**职责**：
+- 评估功能实现的技术选型
+- 指出方案中的潜在风险
+- 给出替代方案的利弊分析
+
+**输出格式**：
+```
+[架构评估]
+- 当前方案: xxx
+- 风险点: xxx
+- 替代方案: xxx (优点/缺点)
+- 最终建议: xxx
+```
+
+---
+
+## 三、使用示例
+
+```
+[角色：代码审查员]
+请审查以下 DatabaseHelper 中的 queryPoems 方法，重点检查 ResultSet 是否正确关闭。
+
+... [粘贴代码]
+```
+
+```
+[角色：故障诊断师]
+我的 App 在模拟器上运行时报错：Error: Cannot read property 'getString' of undefined
+以下是代码片段和完整堆栈：
+
+... [粘贴内容]
+```
+```
+
+---
+
+# 📁 文档 8：常见陷阱与纠正规则.md
+
+**建议路径**：`docs/3-AI协作/常见陷阱与纠正规则.md`
+
+```markdown
+⚠️ 协作版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（10 条常见陷阱+纠正规则） | [你的姓名] |
+
+---
+
+## 陷阱索引
+
+| 编号 | 陷阱名称 | 严重程度 |
+|------|----------|----------|
+| T01 | ResultSet 未关闭 | 🔴 致命（内存泄漏） |
+| T02 | List 中使用 ForEach 全量渲染 | 🔴 致命（性能崩坏） |
+| T03 | 异步操作缺少 await | 🔴 致命（逻辑错误） |
+| T04 | 网络请求未处理异常 | 🟡 严重（用户体验差） |
+| T05 | 硬编码颜色/尺寸 | 🟡 严重（维护困难） |
+| T06 | Token 存储方式错误 | 🟡 严重（登录态丢失） |
+| T07 | 路由传参未类型化 | 🔵 建议（类型安全） |
+| T08 | @Observed 类未正确实现 | 🟡 严重（UI 不更新） |
+| T09 | 自定义组件未封装 | 🔵 建议（代码冗余） |
+| T10 | 图表使用硬编码数据 | 🔴 致命（不满足硬指标） |
+
+---
+
+## 纠正规则详情
+
+### 🔴 T01：ResultSet 未关闭
+
+**描述**：查询数据库后忘记调用 `resultSet.close()`。
+
+**错误示例**：
+```typescript
+const resultSet = await this.rdbStore.query(predicates);
+while (resultSet.goToNextRow()) {
+  // 读取数据
+}
+// 缺少 close() ← 这里会内存泄漏
+return dataList;
+```
+
+**正确示例**：
+```typescript
+let resultSet: relationalStore.ResultSet | null = null;
+try {
+  resultSet = await this.rdbStore.query(predicates);
+  while (resultSet.goToNextRow()) {
+    // 读取数据
+  }
+} finally {
+  resultSet?.close();  // 确保关闭
+}
+```
+
+**自查提醒**：生成任何 RDB 查询代码时，AI 必须输出：`[自查提醒] 请确认 ResultSet 已放入 try-finally 中关闭`。
+
+---
+
+### 🔴 T02：List 中使用 ForEach 全量渲染
+
+**描述**：长列表直接用 `ForEach` 渲染所有数据项，导致性能问题。
+
+**错误示例**：
+```typescript
+Column() {
+  ForEach(this.poemList, (item) => {
+    Text(item.title)
+  })
+}
+```
+
+**正确示例**：
+```typescript
+List() {
+  LazyForEach(this.poemListDataSource, (item) => {
+    ListItem() {
+      PoemListItem({ poem: item })
+    }
+  })
+}
+```
+
+**自查提醒**：生成列表相关代码时，AI 必须检查：如果数据量可能超过 20 条，强制使用 `List + LazyForEach`。
+
+---
+
+### 🔴 T03：异步操作缺少 await
+
+**描述**：调用异步函数时忘记使用 `await`，导致时序错误。
+
+**错误示例**：
+```typescript
+this.db.insertPoem(poem);  // 缺少 await
+this.loadData();           // 可能在 insert 完成前执行
+```
+
+**正确示例**：
+```typescript
+await this.db.insertPoem(poem);
+await this.loadData();
+```
+
+**自查提醒**：所有 `relationalStore` 和 `axios` 操作前必须加 `await`，并包裹在 `try-catch` 中。
+
+---
+
+### 🟡 T06：Token 存储方式错误
+
+**描述**：使用普通变量或 `AppStorage` 而不持久化，导致应用重启后登录态丢失。
+
+**错误示例**：
+```typescript
+let token = '';  // 应用重启后丢失
+AppStorage.setOrCreate('token', token);  // 未加 persist
+```
+
+**正确示例**：
+```typescript
+PersistentStorage.persistProp('token', '');
+const token = AppStorage.get('token');
+```
+
+**自查提醒**：涉及登录态存储的代码，检查是否使用了 `PersistentStorage.persistProp`。
+
+---
+
+### 🔴 T10：图表使用硬编码数据
+
+**描述**：数据可视化图表使用静态假数据，而不是从 RDB 实时聚合查询。
+
+**错误示例**：
+```typescript
+@State chartData = [
+  { dynasty: '唐', count: 120 },
+  { dynasty: '宋', count: 100 }
+]  // 硬编码，不是从 RDB 查的
+```
+
+**正确示例**：
+```typescript
+aboutToAppear() {
+  this.loadChartData();  // 从 RDB GROUP BY dynasty 查询
+}
+async loadChartData() {
+  const sql = 'SELECT dynasty, COUNT(*) as cnt FROM poem GROUP BY dynasty';
+  // 执行查询，赋值给 @State 变量
+}
+```
+
+**自查提醒**：生成图表相关代码时，AI 必须确认数据来源于 RDB 查询，并输出数据来源说明。
+
+---
+
+## 附录：AI 输出格式要求
+
+每次 AI 生成的代码块末尾必须包含一个 **自查清单**：
+
+```markdown
+[自查清单]
+- [ ] ResultSet 已在 finally 中关闭
+- [ ] 列表使用 LazyForEach 而非 ForEach
+- [ ] 所有异步操作已添加 await 和 try-catch
+- [ ] Token 使用 PersistentStorage 持久化
+- [ ] 图表数据来源于 RDB 聚合查询
+```
+```
+
+---
+
+# 📁 文档 9：提示词模板库.md
+
+**建议路径**：`docs/3-AI协作/提示词模板库.md`
+
+```markdown
+📋 协作版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建（5 个提示词模板） | [你的姓名] |
+
+---
+
+## 模板 1：实现 RDB 查询方法
+
+```markdown
+[角色：代码审查员]
+[约束版本：docs/1-项目约束/数据模型约束.md v1.0]
+
+请根据以下要求实现一个 RDB 查询方法：
+
+- 表名：[poem / favorite / quiz_record]
+- 查询条件：[如：按 category 筛选 / 按 title 模糊搜索]
+- 分页参数：[limit, offset]
+- 排序字段：[如：id DESC]
+
+要求：
+1. 使用 RdbPredicates 构建查询条件
+2. 使用 try-catch 包裹，finally 中关闭 ResultSet
+3. 返回类型为 [EntityName][]
+
+请输出代码 + 自查清单。
+```
+
+---
+
+## 模板 2：封装 axios 实例
+
+```markdown
+[角色：架构顾问]
+[约束版本：docs/1-项目约束/API接口约定.md v1.0]
+
+请实现一个 ApiService 单例类，要求：
+
+1. 使用 axios.create 创建实例
+2. 配置 baseURL 和 timeout
+3. 实现请求拦截器：自动从 AppStorage 读取 token 添加到 Authorization 头
+4. 实现响应拦截器：统一解包 res.data，401 错误自动清除 token 并跳转登录页
+5. 封装 GET 和 POST 泛型方法
+
+请输出完整代码 + 使用示例。
+```
+
+---
+
+## 模板 3：实现自定义组件
+
+```markdown
+[角色：代码审查员]
+[约束版本：docs/1-项目约束/代码规范.md v1.0]
+
+请实现一个 [PoemListItem] 自定义组件，要求：
+
+- 文件路径：components/PoemListItem.ets
+- 输入参数：@Prop poem: Poem
+- UI 布局：横向 Row，左边显示标题+作者，右边显示朝代标签
+- 支持点击事件回调
+
+要求：
+1. 使用 @Component 装饰器
+2. 组件文件单独存放
+3. 命名符合规范
+
+请输出代码 + 在使用页面的引入示例。
+```
+
+---
+
+## 模板 4：实现数据可视化图表
+
+```markdown
+[角色：代码审查员]
+[约束版本：docs/1-项目约束/数据模型约束.md v1.0]
+
+请在 ProfilePage 中实现一个数据可视化图表，展示诗词按朝代的分布情况。
+
+要求：
+1. 数据来源：从 RDB 执行 `SELECT dynasty, COUNT(*) FROM poem GROUP BY dynasty`
+2. 展示方式：Grid 矩阵图（每个朝代一个格子，大小按数量比例）
+3. 在 aboutToAppear 中加载数据
+4. 图表数据来自 RDB 实时查询，不是硬编码
+
+请输出完整代码 + 自查清单。
+```
+
+---
+
+## 模板 5：实现带深度响应的列表点赞功能
+
+```markdown
+[角色：代码审查员]
+[约束版本：docs/1-项目约束/API接口约定.md v1.0]
+
+请在 SocialPage 中实现诗圈帖子的点赞功能，要求：
+
+1. 帖子数据模型 Post 使用 @Observed 装饰器
+2. 帖子列表项组件 SocialPostItem 使用 @ObjectLink 接收帖子对象
+3. 点击点赞按钮时，调用 POST /social/like 接口
+4. 点赞成功后，更新 @ObjectLink 绑定的字段，UI 应自动刷新
+5. 点赞按钮状态（已点赞/未点赞）和点赞数实时更新
+
+请输出：
+- Post 数据模型定义
+- SocialPostItem 组件代码
+- SocialPage 中的列表渲染逻辑
+- 点赞方法的实现
+
+要求输出代码 + 自查清单。
+```
+
+---
+
+## 附：对话前缀模板（每次开发前发送）
+
+```markdown
+# 当前开发上下文
+- 约束版本：docs/1-项目约束/[技术栈约束.md / 数据模型约束.md / API接口约定.md] v1.0
+- 当前里程碑：M[X] - [里程碑名称]
+- 上次对话总结：[简述上次完成了什么]
+- 今日任务：[本次要做的具体功能]
+
+# 本次任务
+[粘贴上述模板 1-5 中的任一内容]
+
+请开始。
+```
+```
+
+---
+
+# 📁 文档 10：验收标准.md
+
+**建议路径**：`docs/4-测试与核对/验收标准.md`
+
+```markdown
+✅ 验收版本 v1.0
+最后更新：2026-06-11
+维护人：[你的姓名]
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 变更人 |
+|------|------|----------|--------|
+| v1.0 | 2026-06-11 | 初始创建，基于技术核对表扩展 | [你的姓名] |
+
+---
+
+## 一、硬指标验收
+
+| 序号 | 验收项 | 验收方法 | 通过标准 |
+|------|--------|----------|----------|
+| 1 | 本地数据库 relationalStore | 查看代码 + 运行时检查 | 使用了 relationalStore，≥3 张表 |
+| 2 | 核心内容表 ≥300 条 | 执行 `SELECT COUNT(*) FROM poem` | 结果 ≥300 |
+| 3 | 图片资源 ≥30 张 | 检查 `resources/base/media` 目录 | 文件数 ≥30 |
+| 4 | axios 接口 ≥2 个 | 检查 ApiService 中的接口方法 | ≥2 个不同的后端接口 |
+| 5 | 页面数量 7-9 个 | 检查 `pages/` 目录 | 7-9 个页面文件 |
+| 6 | 自定义组件 3-4 个 | 检查 `components/` 目录 | 3-4 个自定义组件 |
+| 7 | 数据可视化图表 ≥1 个 | 运行 App，进入个人中心 | 看到基于 RDB 聚合的图表 |
+| 8 | 代码量约 4000 行 | `find . -name "*.ets" | xargs wc -l` | ≥3500 行 |
+
+---
+
+## 二、功能验收用例
+
+### 验收用例 1：启动与登录
+
+| 步骤 | 预期结果 | 实际结果 |
+|------|----------|----------|
+| 1. 首次安装启动 App | 显示启动页（带动画），停留约 1.5 秒后自动跳转登录页 | □ |
+| 2. 在登录页任意输入账号密码 | 调用后端登录接口，成功返回 token | □ |
+| 3. 登录成功后 | 进入底部 Tab 主页，返回键不会回到登录页 | □ |
+| 4. 杀死 App 后重新打开 | 自动进入主页，无需重新登录 | □ |
+
+### 验收用例 2：诗词库列表与详情
+
+| 步骤 | 预期结果 | 实际结果 |
+|------|----------|----------|
+| 1. 进入“诗词库”Tab | 列表显示诗词条目，可以滚动至底部加载更多 | □ |
+| 2. 滚动到第 100 条左右 | 无明显卡顿或白块 | □ |
+| 3. 点击“唐诗”分类筛选 | 只显示分类为“唐诗”的诗词 | □ |
+| 4. 在搜索框输入诗词标题关键字 | 列表显示匹配的诗词 | □ |
+| 5. 点击任意诗词条目 | 跳转到详情页，显示完整内容 | □ |
+| 6. 在详情页点击收藏按钮 | 按钮状态变为“已收藏”，再次点击取消收藏 | □ |
+
+### 验收用例 3：诗词测验
+
+| 步骤 | 预期结果 | 实际结果 |
+|------|----------|----------|
+| 1. 进入“测验”Tab | 显示题目、计时器、进度条 | □ |
+| 2. 答题过程中 | 计时器倒计时，进度条随题目推进 | □ |
+| 3. 完成所有题目 | 弹出 CustomDialog 显示得分 | □ |
+| 4. 点击弹窗中的重试 | 重新开始测验，题目随机刷新 | □ |
+| 5. 完成测验后 | `quiz_record` 表中有该次记录 | □ |
+
+### 验收用例 4：诗圈（网络功能）
+
+| 步骤 | 预期结果 | 实际结果 |
+|------|----------|----------|
+| 1. 进入“诗圈”Tab | 显示从后端拉取的帖子列表 | □ |
+| 2. 点击某个帖子的点赞按钮 | 点赞数 +1，按钮状态变更为已点赞（UI 立即响应） | □ |
+| 3. 在输入框输入内容后点击发布 | 新帖子出现在列表顶部 | □ |
+
+### 验收用例 5：个人中心 + 图表
+
+| 步骤 | 预期结果 | 实际结果 |
+|------|----------|----------|
+| 1. 进入“我的”Tab | 显示用户信息 | □ |
+| 2. 查看数据可视化区域 | 显示基于 RDB 聚合的诗词朝代分布图表 | □ |
+| 3. 点击“我的收藏” | 跳转到收藏列表页，显示已收藏的诗词 | □ |
+| 4. 点击退出登录 | 清除 token，自动跳转登录页 | □ |
+
+---
+
+## 三、边界与异常场景验收
+
+| 场景 | 预期行为 | 实际结果 |
+|------|----------|----------|
+| 网络请求超时 | Toast 提示“网络超时，请稍后重试” | □ |
+| 数据库查询返回空结果 | 列表页显示“暂无数据”占位视图 | □ |
+| 启动时 RDB 初始化失败 | App 不崩溃，显示错误提示 | □ |
+| 连续快速点击点赞按钮 | 不会重复调用接口（防抖） | □ |
+
+---
+
+## 四、代码质量验收
+
+| 检查项 | 通过标准 | 实际结果 |
+|--------|----------|----------|
+| 无硬编码颜色 | 所有颜色通过 `$r('app.color.xxx')` 引用 | □ |
+| 无未关闭的 ResultSet | 代码中每个 query 后都有 close() | □ |
+| 列表使用 LazyForEach | `pages/PoemListPage.ets` 中使用 LazyForEach | □ |
+| 异步操作有 try-catch | 所有 async 函数都有 try-catch | □ |
+| 无 console.log 残留 | 全局搜索 `console.log`，无调试用日志 | □ |
+
+---
+
+## 五、自检结果汇总表
+
+| 验收类别 | 总数 | 通过数 | 通过率 |
+|----------|------|--------|--------|
+| 硬指标 | 8 | □ / 8 | ___% |
+| 功能验收 | 5 组 | □ / 5 | ___% |
+| 边界场景 | 4 | □ / 4 | ___% |
+| 代码质量 | 5 | □ / 5 | ___% |
+
+**最终结论**：✅ 可提交 / ❌ 需补充（请填写原因）
+```
+
+---
+
+## 🔧 GitHub 仓库初始化建议
+
+你提供的仓库地址是 `https://github.com/2053851045-jpg/poemstudy.git`。
+
+### 建议的初始提交结构
+
+```bash
+poemstudy/
+├── docs/                           # 全部 10 个文档放入此目录
+│   ├── 1-项目约束/
+│   │   ├── 技术栈约束.md
+│   │   ├── 数据模型约束.md
+│   │   ├── API接口约定.md
+│   │   └── 代码规范.md
+│   ├── 2-开发计划/
+│   │   ├── 里程碑.md
+│   │   └── 任务拆分.md
+│   ├── 3-AI协作/
+│   │   ├── 角色定义.md
+│   │   ├── 常见陷阱与纠正规则.md
+│   │   └── 提示词模板库.md
+│   └── 4-测试与核对/
+│       └── 验收标准.md
+├── .gitignore                      # 忽略 .idea/、build/、local.properties
+└── README.md                       # 项目概览 + 约束版本索引
+```
+
+### 建议的首次提交命令
+
+```bash
+git init
+git remote add origin https://github.com/2053851045-jpg/poemstudy.git
+git add .
+git commit -m "docs: 初始化项目约束与开发管理文档 v1.0"
+git push -u origin main
+```
+
+### README.md 模板建议
+
+```markdown
+# PoemStudy · 古诗词学习 App
+
+> HarmonyOS 期末项目 · 基于 ArkTS + relationalStore + axios
+
+## 约束版本（开发前必读）
+
+| 文档 | 版本 |
+|------|------|
+| 技术栈约束 | v1.0 |
+| 数据模型约束 | v1.0 |
+| API 接口约定 | v1.0 |
+| 代码规范 | v1.0 |
+| 里程碑 | v1.0 |
+| 任务拆分 | v1.0 |
+| 角色定义 | v1.0 |
+| 常见陷阱 | v1.0 |
+| 提示词模板 | v1.0 |
+| 验收标准 | v1.0 |
+
+## 开发进度
+
+- [ ] M1: 数据层 + 种子数据
+- [ ] M2: 基础页面 + 导航框架
+- [ ] M3: 交互功能（测验）
+- [ ] M4: 网络功能（诗圈）+ 图表
+- [ ] M5: 集成测试 + 收尾
+
+## GitHub 仓库
+
+https://github.com/2053851045-jpg/poemstudy.git
+```
+
+---
+
+以上 10 份文档已全部生成完毕，覆盖了项目从**技术选型 → 数据模型 → 网络约定 → 代码规范 → 开发计划 → 任务拆分 → AI 协作机制 → 自查纠错 → 验收标准**的全流程。你可以直接复制到 trac 或 `docs/` 文件夹中开始后续开发。如果在开发过程中需要调整或扩充任何文档，随时告诉我。

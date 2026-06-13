@@ -1,0 +1,11 @@
+{
+  "src": [
+    "pages/SplashPage",
+    "pages/LoginPage",
+    "pages/MainPage",
+    "pages/PoemDetailPage",
+    "pages/FavoritesPage",
+    "pages/QuizHistoryPage",
+    "pages/SettingsPage"
+  ]
+}

@@ -1,0 +1,21 @@
+# IDE
+.idea/
+.hvigor/
+
+# Build
+build/
+**/build/
+
+# Local configuration
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.local
