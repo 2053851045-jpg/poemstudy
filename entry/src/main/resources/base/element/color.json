@@ -1,0 +1,124 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "primary",
+      "value": "#4A90D9"
+    },
+    {
+      "name": "primary_light",
+      "value": "#EDF4FF"
+    },
+    {
+      "name": "secondary",
+      "value": "#F5A623"
+    },
+    {
+      "name": "success",
+      "value": "#7ED321"
+    },
+    {
+      "name": "success_light",
+      "value": "#E8F8E8"
+    },
+    {
+      "name": "danger",
+      "value": "#E74C3C"
+    },
+    {
+      "name": "danger_light",
+      "value": "#FFF0F0"
+    },
+    {
+      "name": "warning",
+      "value": "#F5A623"
+    },
+    {
+      "name": "text_primary",
+      "value": "#333333"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#666666"
+    },
+    {
+      "name": "text_hint",
+      "value": "#999999"
+    },
+    {
+      "name": "text_placeholder",
+      "value": "#CCCCCC"
+    },
+    {
+      "name": "background",
+      "value": "#F5F5F5"
+    },
+    {
+      "name": "background_light",
+      "value": "#F8F8F8"
+    },
+    {
+      "name": "white",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "divider",
+      "value": "#EEEEEE"
+    },
+    {
+      "name": "overlay",
+      "value": "#66000000"
+    },
+    {
+      "name": "chart_blue",
+      "value": "#4A90D9"
+    },
+    {
+      "name": "chart_orange",
+      "value": "#F5A623"
+    },
+    {
+      "name": "chart_green",
+      "value": "#7ED321"
+    },
+    {
+      "name": "chart_red",
+      "value": "#E74C3C"
+    },
+    {
+      "name": "chart_purple",
+      "value": "#9B59B6"
+    },
+    {
+      "name": "chart_teal",
+      "value": "#1ABC9C"
+    },
+    {
+      "name": "favorite_red",
+      "value": "#E74C3C"
+    },
+    {
+      "name": "disabled",
+      "value": "#CCCCCC"
+    },
+    {
+      "name": "tab_inactive",
+      "value": "#999999"
+    },
+    {
+      "name": "tab_active",
+      "value": "#4A90D9"
+    },
+    {
+      "name": "option_bg",
+      "value": "#EDF4FF"
+    },
+    {
+      "name": "correct_bg",
+      "value": "#F0FFF0"
+    }
+  ]
+}
