@@ -77,6 +77,15 @@ export class StorageHelper {
   }
 
   /**
+   * 判断当前用户是否为游客
+   */
+  static isGuest(): boolean {
+    const token: string | undefined = StorageHelper.get<string>('token')
+    if (!token) return true
+    return token.startsWith('guest_')
+  }
+
+  /**
    * 删除键
    */
   static delete(key: string): void {

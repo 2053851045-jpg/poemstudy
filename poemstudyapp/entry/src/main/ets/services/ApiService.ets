@@ -1,10 +1,22 @@
 
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from '@ohos/axios'
-import { ApiResponse, LoginResponse, UserInfo, DailyPoemId, PostListData, SocialPost, PostDetailData, SocialPostComment } from '../common/Types'
-import { BASE_URL, REQUEST_TIMEOUT, KEY_TOKEN } from '../common/Constants'
+import { ApiResponse, LoginResponse, LoginParams, UserInfo, UserAccount, DailyPoemId, PostListData, SocialPost, PostDetailData, SocialPostComment } from '../common/Types'
+import { BASE_URL, REQUEST_TIMEOUT, KEY_TOKEN, KEY_USER_INFO, KEY_USER_ID } from '../common/Constants'
 import { StorageHelper } from '../utils/StorageHelper'
 
 const TAG = 'ApiService'
+
+/**
+ * 预定义教学用户（仿 week16_getpost 模式）
+ * 考试固定密码统一为 "123456"
+ */
+const PREDEFINED_USERS: UserAccount[] = [
+  { id: 1, username: 'student1', password: '123456', nickname: '诗韵书生', avatar: '', role: 'student' },
+  { id: 2, username: 'student2', password: '123456', nickname: '墨香雅士', avatar: '', role: 'student' },
+  { id: 3, username: 'student3', password: '123456', nickname: '竹影清风', avatar: '', role: 'student' },
+  { id: 4, username: 'teacher', password: '123456', nickname: '诗词先生', avatar: '', role: 'teacher' },
+  { id: 5, username: 'guest', password: '123456', nickname: '访客', avatar: '', role: 'guest' },
+]
 
 /**
  * API 服务单例
@@ -14,6 +26,7 @@ const TAG = 'ApiService'
  * - axios.create 统一实例
  * - 请求头手动携带 token
  * - GET / POST 请求
+ * - 登录鉴权流程
  */
 export class ApiService {
   private static instance: ApiService
@@ -43,28 +56,90 @@ export class ApiService {
     })
   }
 
+  /** 获取所有预定义用户（用于登录页选择） */
+  static getPredefinedUsers(): UserAccount[] {
+    return PREDEFINED_USERS
+  }
+
   /**
    * 登录接口（axios POST）
-   * POST /api/login
+   * POST /api/user/login
+   * 仿 week16_getpost 模式：用户名+密码 → token
+   *
+   * 教学版密码统一为 "123456"
    */
-  async login(nickname: string): Promise<ApiResponse<LoginResponse>> {
+  async login(params: LoginParams): Promise<ApiResponse<LoginResponse>> {
     try {
-      const body: Record<string, string> = { 'nickname': nickname }
-      const response: Record<string, Object> = await this.client.post('/login', body) as Record<string, Object>
+      const body: Record<string, string> = {
+        'username': params.username,
+        'password': params.password
+      }
+      const response: Record<string, Object> = await this.client.post('/user/login', body) as Record<string, Object>
       const res: ApiResponse<LoginResponse> = response['data'] as ApiResponse<LoginResponse>
       console.info(TAG, '登录请求成功')
       return res
     } catch (err) {
-      console.warn(TAG, '登录接口不可用，使用 Mock 数据: ' + JSON.stringify(err))
-      const tokenStr: string = 'mock_token_' + Date.now()
-      const userInfo: UserInfo = { nickname: nickname, avatar: '' }
-      const loginResp: LoginResponse = { token: tokenStr, userInfo: userInfo }
-      const mockData: ApiResponse<LoginResponse> = {
-        code: 0,
-        message: 'success',
-        data: loginResp
+      // 网络不可用 → 使用本地 Mock 验证（教学降级）
+      console.warn(TAG, '后端不可用，使用本地验证: ' + JSON.stringify(err))
+      return this.localLogin(params)
+    }
+  }
+
+  /**
+   * 本地 Mock 登录验证（后端不可用时自动降级）
+   * 仿 week16_getpost Python 后端的验证逻辑
+   */
+  private localLogin(params: LoginParams): ApiResponse<LoginResponse> {
+    // 查找用户
+    const user = PREDEFINED_USERS.find(u => u.username === params.username)
+
+    if (!user) {
+      return {
+        code: 401,
+        message: '用户不存在',
+        data: { token: '', userInfo: { nickname: '', avatar: '' } }
       }
-      return mockData
+    }
+
+    if (user.password !== params.password) {
+      return {
+        code: 401,
+        message: '密码错误（教学版统一密码: 123456）',
+        data: { token: '', userInfo: { nickname: '', avatar: '' } }
+      }
+    }
+
+    // 生成 token（格式：jwt-mock-用户ID-时间戳）
+    const token = 'jwt-mock-' + user.id + '-' + Date.now()
+    const userInfo: UserInfo = {
+      nickname: user.nickname,
+      avatar: user.avatar,
+      role: user.role
+    }
+
+    console.info(TAG, `本地验证通过: ${user.nickname}(${user.role})`)
+    return {
+      code: 0,
+      message: '登录成功',
+      data: { token: token, userInfo: userInfo }
+    }
+  }
+
+  /**
+   * 自定义游客登录（无需预定义账号）
+   * 输入昵称直接进入
+   */
+  guestLogin(nickname: string): ApiResponse<LoginResponse> {
+    const token = 'guest-mock-' + Date.now()
+    const userInfo: UserInfo = {
+      nickname: nickname || '访客',
+      avatar: '',
+      role: 'guest'
+    }
+    return {
+      code: 0,
+      message: '游客模式',
+      data: { token: token, userInfo: userInfo }
     }
   }
 
@@ -79,7 +154,7 @@ export class ApiService {
       return res
     } catch (err) {
       console.warn(TAG, '用户信息接口不可用，使用 Mock 数据')
-      const userData: UserInfo = { nickname: '诗词爱好者', avatar: '' }
+      const userData: UserInfo = { nickname: '诗词爱好者', avatar: '', role: 'student' }
       const mockData: ApiResponse<UserInfo> = {
         code: 0,
         message: 'success',
@@ -88,6 +163,7 @@ export class ApiService {
       return mockData
     }
   }
+
   async updateUserInfo(data: UserInfo): Promise<ApiResponse<null>> {
     try {
       const response: Record<string, Object> = await this.client.put('/user/info', data) as Record<string, Object>
@@ -98,6 +174,7 @@ export class ApiService {
       return mockData
     }
   }
+
   async getDailyPoem(): Promise<ApiResponse<DailyPoemId>> {
     try {
       const response: Record<string, Object> = await this.client.get('/daily-poem') as Record<string, Object>
@@ -161,6 +238,7 @@ export class ApiService {
       return mockData
     }
   }
+
   async unlikePost(postId: number): Promise<ApiResponse<null>> {
     try {
       const response: Record<string, Object> = await this.client.post('/posts/' + postId + '/unlike') as Record<string, Object>

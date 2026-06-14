@@ -38,6 +38,27 @@ export interface QuizRecord {
 export interface UserInfo {
   nickname: string
   avatar: string
+  role?: string
+}
+
+/**
+ * 用户账号（预定义用户表）
+ */
+export interface UserAccount {
+  id: number
+  username: string
+  password: string
+  nickname: string
+  avatar: string
+  role: string       // 'student' | 'teacher' | 'guest'
+}
+
+/**
+ * 登录参数
+ */
+export interface LoginParams {
+  username: string
+  password: string
 }
 
 /**
@@ -151,4 +172,74 @@ export interface CheckInRecord {
   date: string
   poemTitle: string
   content: string
+}
+
+/**
+ * 注册用户（DB user 表映射）
+ */
+export interface RegisteredUser {
+  id: number
+  username: string
+  password: string
+  nickname: string
+  avatar: string
+  createTime: string
+}
+
+/**
+ * 帖子评论（@Observed 深度响应）
+ */
+@Observed
+export class PostComment {
+  id: number
+  postId: number
+  userId: number
+  nickname: string
+  parentId: number     // 0=根评论 >0=回复某条评论
+  content: string
+  likes: number
+  isLiked: boolean
+  createTime: string
+
+  constructor(id: number, postId: number, userId: number, nickname: string,
+              parentId: number, content: string, likes: number, isLiked: boolean, createTime: string) {
+    this.id = id
+    this.postId = postId
+    this.userId = userId
+    this.nickname = nickname
+    this.parentId = parentId
+    this.content = content
+    this.likes = likes
+    this.isLiked = isLiked
+    this.createTime = createTime
+  }
+}
+
+/**
+ * 社交 Feed 条目（帖子 + 评论列表，用于 SocialPage 渲染）
+ */
+@Observed
+export class SocialFeedItem {
+  id: number
+  userId: number
+  nickname: string
+  content: string
+  likes: number
+  isLiked: boolean
+  commentCount: number
+  comments: PostComment[]
+  createTime: string
+
+  constructor(id: number, userId: number, nickname: string, content: string,
+              likes: number, isLiked: boolean, commentCount: number, comments: PostComment[], createTime: string) {
+    this.id = id
+    this.userId = userId
+    this.nickname = nickname
+    this.content = content
+    this.likes = likes
+    this.isLiked = isLiked
+    this.commentCount = commentCount
+    this.comments = comments
+    this.createTime = createTime
+  }
 }

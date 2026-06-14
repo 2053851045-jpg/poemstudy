@@ -79,6 +79,6 @@ struct FavoritesPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor('#F5F0E8')
   }
 }

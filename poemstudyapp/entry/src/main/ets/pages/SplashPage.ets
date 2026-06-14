@@ -149,7 +149,7 @@ struct SplashPage {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('#FAF8F5')
   }
 }
 

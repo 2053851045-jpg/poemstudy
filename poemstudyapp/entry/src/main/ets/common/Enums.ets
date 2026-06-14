@@ -45,3 +45,11 @@ export enum LikeAction {
   LIKE = 'like',
   UNLIKE = 'unlike'
 }
+
+/**
+ * 用户角色
+ */
+export enum UserRole {
+  REGISTERED = 'registered',
+  GUEST = 'guest'
+}

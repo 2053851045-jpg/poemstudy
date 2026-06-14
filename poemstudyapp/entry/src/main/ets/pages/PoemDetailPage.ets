@@ -10,6 +10,8 @@ struct PoemDetailPage {
   @State poem: Poem | null = null
   @State isFavorited: boolean = false
   @State isLoading: boolean = true
+  @State contentOpacity: number = 0
+  @State contentTranslateY: number = 40
   private poemId: number = 0
   private dbHelper: DatabaseHelper = DatabaseHelper.getInstance()
 
@@ -32,6 +34,13 @@ struct PoemDetailPage {
       console.error('PoemDetailPage', '加载诗词详情失败')
     } finally {
       this.isLoading = false
+      // 入场动画：内容淡入 + 上滑（等效 transition 考点）
+      setTimeout(() => {
+        animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
+          this.contentOpacity = 1
+          this.contentTranslateY = 0
+        })
+      }, 50)
     }
   }
 
@@ -112,7 +121,7 @@ struct PoemDetailPage {
             Row() {
               Text(this.poem.author || '佚名')
                 .fontSize(15)
-                .fontColor('#4A90D9')
+                .fontColor('#8B4513')
               if (this.poem.dynasty) {
                 Text(' · ')
                   .fontSize(15)
@@ -129,7 +138,7 @@ struct PoemDetailPage {
               Text(this.poem.category)
                 .fontSize(12)
                 .fontColor('#FFFFFF')
-                .backgroundColor('#4A90D9')
+                .backgroundColor('#8B4513')
                 .borderRadius(10)
                 .padding({ left: 12, right: 12, top: 4, bottom: 4 })
                 .margin({ top: 10 })
@@ -164,6 +173,8 @@ struct PoemDetailPage {
         .layoutWeight(1)
         .scrollBar(BarState.Off)
         .align(Alignment.Top)
+        .opacity(this.contentOpacity)
+        .translate({ y: this.contentTranslateY })
 
         // 底部收藏按钮
         this.favoriteButton()
@@ -180,8 +191,8 @@ struct PoemDetailPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFFFFF')
-    }
+    .backgroundColor('#FAF8F5')
+}
     .width('100%')
     .height('100%')
   }

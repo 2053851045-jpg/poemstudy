@@ -23,21 +23,9 @@ export default class EntryAbility extends UIAbility {
     // 初始化 preferences 持久化存储（恢复上次登录态）
     await StorageHelper.init(this.context)
 
-    // 仅首次启动时设置默认值，不覆盖已有持久化数据
-    if (!StorageHelper.has(KEY_TOKEN)) {
-      StorageHelper.set(KEY_TOKEN, '')
-    }
-    if (!StorageHelper.has(KEY_USER_INFO)) {
-      StorageHelper.set(KEY_USER_INFO, '')
-    }
+    // 仅首次启动时设置 Tab 默认值
     if (!StorageHelper.has(KEY_CURRENT_TAB)) {
       StorageHelper.set(KEY_CURRENT_TAB, 0)
-    }
-    if (!StorageHelper.has(KEY_USER_ID)) {
-      // 首次安装生成持久化用户 ID
-      const uid = Math.abs(Math.floor(Math.random() * 9999999)) || 1
-      StorageHelper.set(KEY_USER_ID, uid)
-      hilog.info(DOMAIN, TAG, `生成持久化用户 ID: ${uid}`)
     }
 
     // 初始化数据库

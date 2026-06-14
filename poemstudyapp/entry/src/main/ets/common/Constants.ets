@@ -11,6 +11,9 @@ export const TABLE_POEM = 'poem'
 export const TABLE_FAVORITE = 'favorite'
 export const TABLE_QUIZ_RECORD = 'quiz_record'
 export const TABLE_CHECKIN = 'checkin'
+export const TABLE_USER = 'user'
+export const TABLE_SOCIAL_POST = 'social_post'
+export const TABLE_POST_COMMENT = 'post_comment'
 
 /**
  * API 配置

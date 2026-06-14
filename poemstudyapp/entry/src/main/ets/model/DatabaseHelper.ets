@@ -2,8 +2,8 @@
 import relationalStore from '@ohos.data.relationalStore'
 import { common } from '@kit.AbilityKit'
 import { StorageHelper } from '../utils/StorageHelper'
-import { DB_NAME, TABLE_POEM, TABLE_FAVORITE, TABLE_QUIZ_RECORD, TABLE_CHECKIN, KEY_USER_ID } from '../common/Constants'
-import { Poem, Favorite, QuizRecord, DynastyStat, CategoryStat, CheckInRecord } from '../common/Types'
+import { DB_NAME, TABLE_POEM, TABLE_FAVORITE, TABLE_QUIZ_RECORD, TABLE_CHECKIN, TABLE_USER, TABLE_SOCIAL_POST, TABLE_POST_COMMENT, KEY_USER_ID } from '../common/Constants'
+import { Poem, Favorite, QuizRecord, DynastyStat, CategoryStat, CheckInRecord, RegisteredUser, SocialFeedItem, PostComment } from '../common/Types'
 
 const TAG = 'DatabaseHelper'
 
@@ -57,6 +57,42 @@ const SQL_INDEX_POEM_CATEGORY = `CREATE INDEX IF NOT EXISTS idx_poem_category ON
 const SQL_INDEX_FAVORITE = `CREATE UNIQUE INDEX IF NOT EXISTS idx_favorite_user_poem ON ${TABLE_FAVORITE}(user_id, poem_id)`
 const SQL_INDEX_QUIZ = `CREATE INDEX IF NOT EXISTS idx_quiz_user_time ON ${TABLE_QUIZ_RECORD}(user_id, quiz_time)`
 const SQL_INDEX_CHECKIN = `CREATE UNIQUE INDEX IF NOT EXISTS idx_checkin_user_date ON ${TABLE_CHECKIN}(user_id, checkin_date)`
+
+// ==================== 新增表：用户 / 社交帖子 / 评论 ====================
+const SQL_CREATE_USER = `
+  CREATE TABLE IF NOT EXISTS ${TABLE_USER} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    nickname TEXT DEFAULT '',
+    avatar TEXT DEFAULT '',
+    create_time TEXT NOT NULL
+  )
+`
+const SQL_CREATE_SOCIAL_POST = `
+  CREATE TABLE IF NOT EXISTS ${TABLE_SOCIAL_POST} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    nickname TEXT NOT NULL,
+    content TEXT NOT NULL,
+    likes INTEGER DEFAULT 0,
+    create_time TEXT NOT NULL
+  )
+`
+const SQL_CREATE_POST_COMMENT = `
+  CREATE TABLE IF NOT EXISTS ${TABLE_POST_COMMENT} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    nickname TEXT NOT NULL,
+    parent_id INTEGER DEFAULT 0,
+    content TEXT NOT NULL,
+    likes INTEGER DEFAULT 0,
+    create_time TEXT NOT NULL
+  )
+`
+const SQL_INDEX_SOCIAL_POST = `CREATE INDEX IF NOT EXISTS idx_social_post_time ON ${TABLE_SOCIAL_POST}(create_time)`
+const SQL_INDEX_POST_COMMENT = `CREATE INDEX IF NOT EXISTS idx_comment_post ON ${TABLE_POST_COMMENT}(post_id, parent_id)`
 
 /**
  * 数据库管理单例类
@@ -119,6 +155,12 @@ export class DatabaseHelper {
       await this.rdbStore.executeSql(SQL_INDEX_FAVORITE)
       await this.rdbStore.executeSql(SQL_INDEX_QUIZ)
       await this.rdbStore.executeSql(SQL_INDEX_CHECKIN)
+      // 新表：用户 / 帖子 / 评论
+      await this.rdbStore.executeSql(SQL_CREATE_USER)
+      await this.rdbStore.executeSql(SQL_CREATE_SOCIAL_POST)
+      await this.rdbStore.executeSql(SQL_CREATE_POST_COMMENT)
+      await this.rdbStore.executeSql(SQL_INDEX_SOCIAL_POST)
+      await this.rdbStore.executeSql(SQL_INDEX_POST_COMMENT)
       console.info(TAG, '建表成功')
     } catch (err) {
       console.error(TAG, '建表失败: %{public}s', JSON.stringify(err))
@@ -131,6 +173,23 @@ export class DatabaseHelper {
    */
   getStore(): relationalStore.RdbStore | null {
     return this.rdbStore
+  }
+
+  /**
+   * 确保数据库已就绪（等待最多 5 秒）
+   */
+  async ensureReady(): Promise<void> {
+    if (this.rdbStore) return
+    // 数据库尚未初始化完成，等待
+    for (let i = 0; i < 25; i++) {
+      await this.delay(200)
+      if (this.rdbStore) return
+    }
+    console.warn(TAG, '数据库初始化超时')
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   // ==================== 种子数据导入 ====================
@@ -670,6 +729,298 @@ export class DatabaseHelper {
     }
     return result
   }
+  // ==================== 用户/帖子/评论 CRUD（打卡圈社交系统） ====================
+
+  /** 注册新用户，返回 userId */
+  async registerUser(username: string, password: string, nickname: string): Promise<number> {
+    if (!this.rdbStore) throw new Error('数据库未初始化')
+    try {
+      const now = this.getNowStr()
+      const valueBucket: relationalStore.ValuesBucket = {
+        'username': username,
+        'password': password,
+        'nickname': nickname || username,
+        'avatar': '',
+        'create_time': now
+      }
+      const rowId = await this.rdbStore.insert(TABLE_USER, valueBucket)
+      return rowId
+    } catch (err) {
+      console.error(TAG, '注册用户失败: ' + JSON.stringify(err))
+      throw err instanceof Error ? err : new Error()
+    }
+  }
+
+  /** 按用户名查找用户 */
+  async findUserByUsername(username: string): Promise<RegisteredUser | null> {
+    if (!this.rdbStore) return null
+    let resultSet: relationalStore.ResultSet | null = null
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_USER)
+        .equalTo('username', username)
+      resultSet = await this.rdbStore.query(predicates)
+      if (resultSet.goToFirstRow()) {
+        return this.rowToUser(resultSet)
+      }
+      return null
+    } catch (err) {
+      console.error(TAG, '查找用户失败: ' + JSON.stringify(err))
+      return null
+    } finally {
+      resultSet?.close()
+    }
+  }
+
+  /** 验证登录 */
+  async verifyLogin(username: string, password: string): Promise<RegisteredUser | null> {
+    if (!this.rdbStore) return null
+    let resultSet: relationalStore.ResultSet | null = null
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_USER)
+        .equalTo('username', username)
+        .equalTo('password', password)
+      resultSet = await this.rdbStore.query(predicates)
+      if (resultSet.goToFirstRow()) {
+        return this.rowToUser(resultSet)
+      }
+      return null
+    } catch (err) {
+      console.error(TAG, '验证登录失败: ' + JSON.stringify(err))
+      return null
+    } finally {
+      resultSet?.close()
+    }
+  }
+
+  /** 按 ID 查用户 */
+  async getUserById(userId: number): Promise<RegisteredUser | null> {
+    if (!this.rdbStore) return null
+    let resultSet: relationalStore.ResultSet | null = null
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_USER)
+        .equalTo('id', userId)
+      resultSet = await this.rdbStore.query(predicates)
+      if (resultSet.goToFirstRow()) {
+        return this.rowToUser(resultSet)
+      }
+      return null
+    } catch (err) {
+      console.error(TAG, '查询用户失败: ' + JSON.stringify(err))
+      return null
+    } finally {
+      resultSet?.close()
+    }
+  }
+
+  /** 删除用户 */
+  async deleteUser(userId: number): Promise<void> {
+    if (!this.rdbStore) return
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_USER)
+        .equalTo('id', userId)
+      await this.rdbStore.delete(predicates)
+    } catch (err) {
+      console.error(TAG, '删除用户失败: ' + JSON.stringify(err))
+    }
+  }
+
+  // ==================== 帖子 CRUD ====================
+
+  /** 发帖，返回 postId */
+  async createPost(userId: number, nickname: string, content: string): Promise<number> {
+    if (!this.rdbStore) throw new Error('数据库未初始化')
+    const valueBucket: relationalStore.ValuesBucket = {
+      'user_id': userId,
+      'nickname': nickname,
+      'content': content,
+      'likes': 0,
+      'create_time': this.getNowStr()
+    }
+    const rowId = await this.rdbStore.insert(TABLE_SOCIAL_POST, valueBucket)
+    return rowId
+  }
+
+  /** 分页获取帖子（含评论数） */
+  async getPosts(limit: number, offset: number): Promise<SocialFeedItem[]> {
+    if (!this.rdbStore) return []
+    let resultSet: relationalStore.ResultSet | null = null
+    const result: SocialFeedItem[] = []
+    try {
+      const sql = `SELECT p.*, (SELECT COUNT(*) FROM ${TABLE_POST_COMMENT} c WHERE c.post_id = p.id) AS comment_count FROM ${TABLE_SOCIAL_POST} p ORDER BY p.create_time DESC LIMIT ${limit} OFFSET ${offset}`
+      resultSet = await this.rdbStore.querySql(sql)
+      while (resultSet.goToNextRow()) {
+        const postId = resultSet.getLong(resultSet.getColumnIndex('id'))
+        result.push(new SocialFeedItem(
+          postId,
+          resultSet.getLong(resultSet.getColumnIndex('user_id')),
+          resultSet.getString(resultSet.getColumnIndex('nickname')),
+          resultSet.getString(resultSet.getColumnIndex('content')),
+          resultSet.getLong(resultSet.getColumnIndex('likes')),
+          false,
+          resultSet.getLong(resultSet.getColumnIndex('comment_count')),
+          [],
+          resultSet.getString(resultSet.getColumnIndex('create_time'))
+        ))
+      }
+    } catch (err) {
+      console.error(TAG, '获取帖子失败: ' + JSON.stringify(err))
+    } finally {
+      resultSet?.close()
+    }
+    return result
+  }
+
+  /** 单条帖子 */
+  async getPostById(postId: number): Promise<SocialFeedItem | null> {
+    if (!this.rdbStore) return null
+    let resultSet: relationalStore.ResultSet | null = null
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_SOCIAL_POST)
+        .equalTo('id', postId)
+      resultSet = await this.rdbStore.query(predicates)
+      if (resultSet.goToFirstRow()) {
+        return new SocialFeedItem(
+          resultSet.getLong(resultSet.getColumnIndex('id')),
+          resultSet.getLong(resultSet.getColumnIndex('user_id')),
+          resultSet.getString(resultSet.getColumnIndex('nickname')),
+          resultSet.getString(resultSet.getColumnIndex('content')),
+          resultSet.getLong(resultSet.getColumnIndex('likes')),
+          false, 0, [],
+          resultSet.getString(resultSet.getColumnIndex('create_time'))
+        )
+      }
+      return null
+    } catch (err) {
+      console.error(TAG, '查询帖子失败: ' + JSON.stringify(err))
+      return null
+    } finally {
+      resultSet?.close()
+    }
+  }
+
+  /** 帖子点赞/取消点赞 */
+  async updatePostLikes(postId: number, delta: number): Promise<void> {
+    if (!this.rdbStore) return
+    try {
+      const sql = `UPDATE ${TABLE_SOCIAL_POST} SET likes = MAX(0, likes + ${delta}) WHERE id = ${postId}`
+      await this.rdbStore.executeSql(sql)
+    } catch (err) {
+      console.error(TAG, '更新帖子点赞失败: ' + JSON.stringify(err))
+    }
+  }
+
+  /** 删除帖子（仅本人） */
+  async deletePost(postId: number, userId: number): Promise<boolean> {
+    if (!this.rdbStore) return false
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_SOCIAL_POST)
+        .equalTo('id', postId)
+        .equalTo('user_id', userId)
+      const rows = await this.rdbStore.delete(predicates)
+      return rows > 0
+    } catch (err) {
+      console.error(TAG, '删除帖子失败: ' + JSON.stringify(err))
+      return false
+    }
+  }
+
+  // ==================== 评论 CRUD ====================
+
+  /** 添加评论/回复，返回 commentId */
+  async addComment(postId: number, userId: number, nickname: string, content: string, parentId: number): Promise<number> {
+    if (!this.rdbStore) throw new Error('数据库未初始化')
+    const valueBucket: relationalStore.ValuesBucket = {
+      'post_id': postId,
+      'user_id': userId,
+      'nickname': nickname,
+      'parent_id': parentId,
+      'content': content,
+      'likes': 0,
+      'create_time': this.getNowStr()
+    }
+    const rowId = await this.rdbStore.insert(TABLE_POST_COMMENT, valueBucket)
+    return rowId
+  }
+
+  /** 获取某帖子的全部评论（含嵌套） */
+  async getCommentsByPostId(postId: number): Promise<PostComment[]> {
+    if (!this.rdbStore) return []
+    let resultSet: relationalStore.ResultSet | null = null
+    const result: PostComment[] = []
+    try {
+      const predicates = new relationalStore.RdbPredicates(TABLE_POST_COMMENT)
+        .equalTo('post_id', postId)
+        .orderByAsc('create_time')
+      resultSet = await this.rdbStore.query(predicates)
+      while (resultSet.goToNextRow()) {
+        result.push(this.rowToComment(resultSet))
+      }
+    } catch (err) {
+      console.error(TAG, '获取评论失败: ' + JSON.stringify(err))
+    } finally {
+      resultSet?.close()
+    }
+    return result
+  }
+
+  /** 评论点赞/取消点赞 */
+  async updateCommentLikes(commentId: number, delta: number): Promise<void> {
+    if (!this.rdbStore) return
+    try {
+      const sql = `UPDATE ${TABLE_POST_COMMENT} SET likes = MAX(0, likes + ${delta}) WHERE id = ${commentId}`
+      await this.rdbStore.executeSql(sql)
+    } catch (err) {
+      console.error(TAG, '更新评论点赞失败: ' + JSON.stringify(err))
+    }
+  }
+
+  // ==================== 游客数据清理 ====================
+
+  /** 清理指定 userId 的所有数据（游客退出时） */
+  async cleanGuestData(guestUserId: number): Promise<void> {
+    if (!this.rdbStore) return
+    try {
+      const tables: string[] = [TABLE_FAVORITE, TABLE_QUIZ_RECORD, TABLE_CHECKIN, TABLE_SOCIAL_POST, TABLE_POST_COMMENT]
+      for (const table of tables) {
+        const predicates = new relationalStore.RdbPredicates(table)
+          .equalTo('user_id', guestUserId)
+        await this.rdbStore.delete(predicates)
+      }
+      console.info(TAG, `游客数据清理完成: userId=${guestUserId}`)
+    } catch (err) {
+      console.error(TAG, '清理游客数据失败: ' + JSON.stringify(err))
+    }
+  }
+
+  // ==================== 行映射 ====================
+
+  /** ResultSet → RegisteredUser */
+  private rowToUser(rs: relationalStore.ResultSet): RegisteredUser {
+    return {
+      id: rs.getLong(rs.getColumnIndex('id')),
+      username: rs.getString(rs.getColumnIndex('username')),
+      password: rs.getString(rs.getColumnIndex('password')),
+      nickname: rs.getString(rs.getColumnIndex('nickname')),
+      avatar: rs.getString(rs.getColumnIndex('avatar')),
+      createTime: rs.getString(rs.getColumnIndex('create_time'))
+    }
+  }
+
+  /** ResultSet → PostComment */
+  private rowToComment(rs: relationalStore.ResultSet): PostComment {
+    return new PostComment(
+      rs.getLong(rs.getColumnIndex('id')),
+      rs.getLong(rs.getColumnIndex('post_id')),
+      rs.getLong(rs.getColumnIndex('user_id')),
+      rs.getString(rs.getColumnIndex('nickname')),
+      rs.getLong(rs.getColumnIndex('parent_id')),
+      rs.getString(rs.getColumnIndex('content')),
+      rs.getLong(rs.getColumnIndex('likes')),
+      false,
+      rs.getString(rs.getColumnIndex('create_time'))
+    )
+  }
+
   private getCurrentUserId(): number {
     try {
       const uid: number = StorageHelper.get<number>(KEY_USER_ID) ?? 1

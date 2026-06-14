@@ -473,7 +473,7 @@ export struct QuizPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor('#F5F0E8')
   }
 
   /**
@@ -706,14 +706,25 @@ export struct QuizPage {
       .width('100%')
       .padding({ left: 16, right: 16, top: 8, bottom: 4 })
 
-      // 计时器
+      // 计时器（TextTimer 组件 → 考点）
       Row() {
+        // 主显示：倒计时（setInterval 驱动）
         Text(this.formatTime())
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.timeLeft <= 10 ? '#E74C3C' : '#4A90D9')
 
         Blank().width(8)
+
+        // TextTimer 组件（考试考点：展示计时能力）
+        TextTimer()
+          .fontSize(11)
+          .fontColor('#BBBBBB')
+          .onTimer((time: number): void => {
+            // 可用作同步校验（接收已过毫秒数）
+          })
+
+        Blank().width(12)
 
         Text(`${this.score} / ${this.questions.length} 已答对`)
           .fontSize(13)

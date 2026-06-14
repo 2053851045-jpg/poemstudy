@@ -53,6 +53,7 @@ struct MainPage {
     .barWidth('100%')
     .barHeight(56)
     .animationDuration(200)
+    .backgroundColor('#FAF8F5')
     .onChange((index: number) => {
       this.currentTab = index
       StorageHelper.set(KEY_CURRENT_TAB, index)
@@ -65,11 +66,11 @@ struct MainPage {
       Image(this.getTabIcon(index))
         .width(24)
         .height(24)
-        .fillColor(this.currentTab === index ? '#4A90D9' : '#999999')
+        .fillColor(this.currentTab === index ? '#8B4513' : '#B8A898')
 
       Text(this.tabTitles[index])
         .fontSize(11)
-        .fontColor(this.currentTab === index ? '#4A90D9' : '#999999')
+        .fontColor(this.currentTab === index ? '#8B4513' : '#B8A898')
         .margin({ top: 2 })
     }
     .justifyContent(FlexAlign.Center)

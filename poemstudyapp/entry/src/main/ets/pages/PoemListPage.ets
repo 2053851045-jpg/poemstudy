@@ -161,14 +161,14 @@ export struct PoemListPage {
         .onReachEnd(() => { this.loadPoems(false) })
       }
     }
-    .width('100%').height('100%').backgroundColor('#F5F5F5')
+    .width('100%').height('100%').backgroundColor('#F5F0E8')
   }
 
   @Builder
   searchBar() {
     Row() {
       TextInput({ placeholder: '搜索诗词...', text: this.searchKeyword })
-        .fontSize(14).backgroundColor('#FFFFFF').borderRadius(20)
+        .fontSize(14).backgroundColor('#F5F0E8').borderRadius(20)
         .height(36).layoutWeight(1)
         .padding({ left: 16, right: 16 })
         .onChange((value: string) => { this.searchKeyword = value })
@@ -176,25 +176,25 @@ export struct PoemListPage {
 
       if (this.searchKeyword) {
         Text('搜索')
-          .fontSize(14).fontColor('#4A90D9')
+          .fontSize(14).fontColor('#8B4513')
           .margin({ left: 10 })
           .onClick(() => { this.onSearch() })
       }
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 12, bottom: 8 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('#FAF8F5')
   }
 
   @Builder
   categoryBar() {
     Row() {
-      Text(this.getCategoryName()).fontSize(14).fontColor('#4A90D9')
-      Text(' ▾').fontSize(12).fontColor('#4A90D9')
+      Text(this.getCategoryName()).fontSize(14).fontColor('#8B4513')
+      Text(' ▾').fontSize(12).fontColor('#8B4513')
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('#FAF8F5')
     .onClick(() => { this.showCategoryMenu = !this.showCategoryMenu })
 
     if (this.showCategoryMenu) {
@@ -229,10 +229,10 @@ export struct PoemListPage {
 
       Column() {
         Row() {
-          Text('今日推荐 · ').fontSize(11).fontColor('#F5A623').fontWeight(FontWeight.Bold)
-          Text(this.dailyPoem!.title).fontSize(14).fontColor('#333333').fontWeight(FontWeight.Medium)
-          Text(' — ').fontSize(13).fontColor('#999999')
-          Text(this.dailyPoem!.author).fontSize(13).fontColor('#4A90D9')
+          Text('今日推荐 · ').fontSize(11).fontColor('#C5A55A').fontWeight(FontWeight.Bold)
+          Text(this.dailyPoem!.title).fontSize(14).fontColor('#3A3A3A').fontWeight(FontWeight.Medium)
+          Text(' — ').fontSize(13).fontColor('#8B7355')
+          Text(this.dailyPoem!.author).fontSize(13).fontColor('#8B4513')
         }
         Blank().height(6)
         Text(this.dailyPoem!.reason)
@@ -245,7 +245,7 @@ export struct PoemListPage {
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-    .backgroundColor('#FFF9F0')
+    .backgroundColor('#F5EDE0')
     .margin({ left: 12, right: 12, top: 10, bottom: 4 })
     .borderRadius(10)
     .onClick(() => {
